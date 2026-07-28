@@ -29,6 +29,7 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 7. **[T1620 — Reflective Code Loading](docs/07-reflective-loading.md)** 🔴🔵 — fileless em .NET (via AMSI) e nativo (loader manual), sinais de memória e contrapartida defensiva.
 8. **[AMSI em profundidade](docs/08-amsi-deep-dive.md)** 🔵 — arquitetura, buffer desofuscado, Script Block Logging e os limites da interface.
 9. **[T1218 — LOLBins em profundidade](docs/09-lolbins.md)** 🔴🔵 — binários assinados como veículo, famílias, sinais de detecção e WDAC como resposta real.
+10. **[T1562.006 — ETW e Indicator Blocking](docs/10-etw-indicator-blocking.md)** 🔴🔵 — atacar a telemetria é gerar telemetria: categorias de interferência, kernel vs. user-mode e a defesa do silêncio.
 
 ---
 
