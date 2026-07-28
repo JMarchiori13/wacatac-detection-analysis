@@ -1,77 +1,74 @@
 # 06 — T1055: Process Injection
 
-> **Perspectiva dupla** 🔴🔵. Injecção de processo é executar código no contexto de outro processo — herdando seus privilégios, sua reputação (processo legítimo, frequentemente assinado pela Microsoft) e misturando o comportamento malicioso ao dele. Este documento cobre as variantes em nível **conceitual** e a telemetria que cada uma deixa.
+> Perspectiva dupla, ofensiva e defensiva. Process injection é executar código no contexto de outro processo. O código herda os privilégios do alvo, a reputação dele (frequentemente um binário assinado pela Microsoft) e ainda dilui o próprio comportamento no comportamento normal do hospedeiro.
 
-## Por que injetar?
+## Por que injetar
 
 | Motivação | O que o processo alvo oferece |
 |---|---|
-| Evasão de detecção | Comportamento malicioso vem de processo confiável (explorer, svchost, notepad) |
-| Evasão de reputação | SmartScreen/heurística avaliam o executável em disco — o alvo é legítimo |
-| Escalação de contexto | Herdar tokens, privilégios e acesso a recursos do alvo |
-| Persistência discreta | Código vive em memória alheia, sem novo processo na lista |
+| Evasão de detecção | O comportamento malicioso sai de um processo confiável |
+| Evasão de reputação | SmartScreen e heurística avaliam o executável em disco, e o alvo é legítimo |
+| Contexto | Tokens, privilégios e acessos do alvo |
+| Discrição | Código em memória alheia, sem processo novo na lista |
 
-## Variantes (visão conceitual)
+## Variantes
 
-| Sub-técnica | O que é | Sinal residual clássico |
+| Sub-técnica | O que é | Sinal residual |
 |---|---|---|
-| **T1055.001 — DLL Injection** | Forçar o alvo a carregar uma DLL: escrever o caminho na memória alheia e criar thread remota em `LoadLibrary` | OpenProcess com permissões de escrita/criação de thread + CreateRemoteThread + DLL não assinada carregada (Sysmon EID 7) |
-| **T1055.002 — PE Injection** | Copiar um executável inteiro para memória alheia e executá-lo sem passar pelo loader | Memória executável sem arquivo de backing + thread remota |
-| **T1055.003 — Thread Execution Hijacking** | Suspender uma thread existente do alvo, redirecionar o contexto (RIP) para código injetado e retomar | SuspendThread/SetThreadContext/ResumeThread cross-process — sequência altamente característica |
-| **T1055.004 — APC Injection** | Enfileirar uma Asynchronous Procedure Call na thread alheia, executando quando ela entra em alertable wait | QueueUserAPC cross-process; mais discreto que thread remota, mas igualmente visível a EDR |
-| **T1055.012 — Process Hollowing** | Criar processo legítimo suspenso, esvaziar sua imagem e substituir pelo payload antes de rodar | Processo criado em estado suspenso + imagem em memória divergente da imagem em disco (comparação detectável) |
-| **T1055.013 — Process Doppelgänging** | Usar transações NTFS para criar imagem "fantasma" em disco que some após o uso | Manipulação transacional de arquivo + processo cujo backing não existe mais; scanners de memória comparam com disco |
+| T1055.001 — DLL Injection | Escrever o caminho da DLL na memória alheia e criar thread remota em `LoadLibrary` | Handle com escrita e criação de thread, mais DLL não assinada carregada (EID 7) |
+| T1055.002 — PE Injection | Copiar um executável inteiro para memória alheia sem passar pelo loader | Memória executável sem arquivo de imagem associado |
+| T1055.003 — Thread Hijacking | Suspender uma thread do alvo, redirecionar o contexto e retomar | Sequência Suspend/SetContext/Resume cross-process, muito característica |
+| T1055.004 — APC Injection | Enfileirar uma chamada assíncrona na thread alheia | QueueUserAPC cross-process; discreto, mas visível a EDR |
+| T1055.012 — Process Hollowing | Criar processo legítimo suspenso, esvaziar a imagem e substituir pelo payload | Processo suspenso na criação e divergência entre imagem em memória e em disco |
+| T1055.013 — Doppelgänging | Usar transação NTFS para criar imagem fantasma que some depois do uso | Processo cujo backing não existe mais; scanner de memória compara com disco |
 
-## A camada que entrega quase todas: handles cross-process
+## O elo comum: handles cross-process
 
-O elo comum de quase toda injeção: **um processo abre handle em outro com permissões que processos normais raramente precisam**.
+Quase toda injeção passa pelo mesmo gesto: um processo abre handle em outro com permissões que software normal quase nunca pede.
 
-| Permissão no handle | Para que serve na injeção | Raridade em software legítimo |
+| Permissão | Para que serve na injeção | Em software legítimo |
 |---|---|---|
-| `PROCESS_VM_WRITE` | Escrever payload/caminho na memória alheia | Rara fora de debuggers |
-| `PROCESS_VM_OPERATION` | Alocar/mudar proteção de memória alheia | Rara |
+| `PROCESS_VM_WRITE` | Escrever o payload na memória alheia | Rara fora de debuggers |
+| `PROCESS_VM_OPERATION` | Alocar e mudar proteção de memória | Rara |
 | `PROCESS_CREATE_THREAD` | CreateRemoteThread | Muito rara |
 | `PROCESS_SET_CONTEXT` | Hijacking de thread | Muito rara |
-| Combinação `WRITE + CREATE_THREAD` | Receita clássica completa | Sinal de alta confiança |
+| WRITE + CREATE_THREAD juntas | A receita clássica completa | Sinal de alta confiança |
 
-Debuggers legítimos (WinDbg, Visual Studio) fazem o mesmo — a defesa trata por **relação pai-filho e prevalência**, não pela permissão isolada.
+Debuggers fazem a mesma coisa, então a defesa não olha a permissão sozinha. Olha quem abriu o handle em quem, e com que frequência aquilo acontece no ambiente.
 
-## Telemetria de detecção
+## Telemetria
 
 | Fonte | Evento | O que observar |
 |---|---|---|
-| Sysmon | **EID 8 — CreateRemoteThread** | Processo origem ≠ alvo, especialmente origem não assinada → alvo de sistema |
-| Sysmon | **EID 10 — ProcessAccess** | `GrantedAccess` com bits de escrita/thread; origem rara acessando `lsass`, `explorer`, `svchost` |
-| Sysmon | EID 7 — ImageLoaded | DLL carregada de path incomum logo após EID 8 |
-| Sysmon | EID 1 — ProcessCreate | Hollowing: processo criado suspenso com flags anômalas; linha de comando vs. comportamento divergentes |
-| ETW | Threat Intelligence | Alocações executáveis remotas, mudanças de proteção de memória cross-process |
-| Scanners de memória | PE-sieve, Moneta (conceitual) | Regiões RWX, imagens em memória que divergem do disco (hollowing/doppelgänging), código sem módulo associado |
-| Windows Defender/MDE | Comportamental | Correlação: acesso cross-process + thread remota + execução subsequente |
+| Sysmon | EID 8 — CreateRemoteThread | Origem não assinada criando thread em processo de sistema |
+| Sysmon | EID 10 — ProcessAccess | `GrantedAccess` com bits de escrita e thread; origem rara acessando `lsass`, `explorer`, `svchost` |
+| Sysmon | EID 7 — ImageLoaded | DLL de path incomum logo depois de um EID 8 |
+| Sysmon | EID 1 — ProcessCreate | Hollowing: processo criado suspenso, cmdline e comportamento divergindo |
+| ETW | Threat Intelligence | Alocação executável remota, mudança de proteção cross-process |
+| Scanners de memória | PE-sieve, Moneta | Regiões RWX, imagens que divergem do disco, código sem módulo |
+| Defender/MDE | Comportamental | Acesso cross-process seguido de thread remota e execução |
 
-## Por que EDR moderno captura tanto
+## Por que EDR captura tanto
 
-1. **O sinal é antigo e estável**: handle com WRITE+CREATE_THREAD em outro processo é anômalo desde sempre — a heurística não envelhece.
-2. **Correlação, não evento único**: EID 8 isolado pode ser legítimo; EID 8 + EID 10 + DLL sem assinatura + rede saindo do alvo = cadeia de alta confiança.
-3. **Memória denuncia**: scanners comparam imagem em memória vs. disco — hollowing e doppelgänging deixam divergência estrutural.
-4. **O alvo colabora**: injetar em processo de sistema torna qualquer comportamento atípico *dele* (rede, filhos) visível por anomalia.
+O sinal é antigo e estável. Handle com escrita e criação de thread em processo alheio é anomalia desde sempre, e heurística assim não envelhece. Além disso, ninguém olha o evento isolado: EID 8 sozinho pode ser legítimo, mas EID 8 com EID 10, DLL sem assinatura e conexão de rede saindo do alvo formam uma cadeia de confiança alta. E por fim, a memória denuncia. Scanners comparam o que está na memória com o que está no disco, e hollowing deixa divergência estrutural.
+
+Tem um detalhe irônico: injetar num processo de sistema faz qualquer comportamento atípico *dele* (rede, processo filho) saltar aos olhos por anomalia. O hospedeiro confiável vira delator.
 
 ## Trade-offs para o red team autorizado
 
-- Injeção troca visibilidade de **arquivo** por visibilidade de **comportamento** — e comportamento é o que EDR moderno melhor correlaciona.
-- Cada variante otimiza um sinal e piora outro: hollowing evita thread remota mas deixa divergência imagem-memória; APC evita CreateRemoteThread mas exige thread em alertable wait (rara no alvo certo).
-- No relatório do engajamento: documentar qual sinal residual a variante escolhida deixou — é o que o blue team consegue transformar em regra.
+Injeção troca visibilidade de arquivo por visibilidade de comportamento, e comportamento é exatamente o que EDR moderno melhor correlaciona. Cada variante otimiza um sinal e piora outro: hollowing evita thread remota mas deixa divergência na imagem; APC evita CreateRemoteThread mas precisa de uma thread em alertable wait, que não existe em todo alvo. No relatório, registre qual sinal a variante escolhida deixou. É isso que vira regra de detecção depois.
 
 ## Contrapartida defensiva
 
-1. **Sysmon com EID 8 e 10 habilitados** (config SwiftOnSecurity/Olaf já cobre) — custo baixo, valor altíssimo.
-2. **Regras Sigma**: `proc_access_win_susp_remote_thread`, `win_sysmon_create_remote_thread`, hunting de `GrantedAccess 0x1F0FFF/0x1F3FFF` em alvos sensíveis.
-3. **Baselining**: inventariar quais processos legítimos fazem injeção no ambiente (AV, debuggers, DLP) para zerar falsos positivos.
-4. **Scanner de memória periódico** em servidores críticos (PE-sieve/Moneta em tarefa agendada, resultados para o SIEM).
-5. **Reduzir superfície**: menos serviços com SYSTEM interativo, LSASS como PPL (RunAsPPL) bloqueia a classe inteira contra o lsass.
+1. Sysmon com EID 8 e 10 habilitados. Custo baixo, retorno imediato.
+2. Regras Sigma de `create_remote_thread` e `process_access`, mais hunting de `GrantedAccess` altos em alvos sensíveis.
+3. Baseline do que injeta legitimamente no ambiente (AV, debuggers, DLP), para o falso positivo não esconder o positivo.
+4. Scanner de memória agendado em servidores críticos, com resultados no SIEM.
+5. LSASS como PPL (RunAsPPL). Elimina a classe inteira contra o processo mais visado.
 
 ## Referências
 
 - MITRE ATT&CK: T1055 e sub-técnicas (.001, .002, .003, .004, .012, .013)
-- Microsoft Sysmon docs: Event ID 8, 10
+- Microsoft: documentação do Sysmon, eventos 8 e 10
 - SigmaHQ: regras de `create_remote_thread` e `process_access`
-- Relacionado: doc 03 (categorias de evasão), doc 04 (matriz detecção) deste repositório
+- Relacionado neste repositório: doc 03 (categorias), doc 04 (matriz de detecção), doc 07 (reflective loading)

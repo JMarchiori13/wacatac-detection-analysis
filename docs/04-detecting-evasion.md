@@ -1,42 +1,40 @@
 # 04 — Detecção de evasão (Blue Team)
 
-Cada categoria do doc 03 deixa rastros. Este documento é a contrapartida: onde a defesa olha.
+Cada categoria do doc 03 deixa rastro. Este documento é o mapa do outro lado: onde a defesa olha quando o atacante tenta não ser visto.
 
-## Matriz evasão → detecção
+## Matriz evasão e detecção
 
-| Categoria de evasão | Sinal residual | Telemetria / regra |
+| Categoria de evasão | Sinal residual | Telemetria |
 |---|---|---|
-| Ofuscação de strings (T1027) | Entropia alta, poucas strings legíveis | YARA estático, análise de entropia, emulação |
-| Packing (T1027.002) | Estrutura PE anômala, seções RWX, entrypoint em última seção | Heurística estática, DIE + regras de packer, desempacotamento por emulação |
-| Decode em estágios (T1140) | Buffers grandes de dados + função de decode | AMSI (buffer final), análise estática de fluxo |
-| Reflective loading (T1620) | Alocação RWX, memória privada executável sem backing de arquivo | ETW, EDR (Sysmon EID 8/10 em alguns casos), scanners de memória (PE-sieve, Moneta) |
-| Process injection (T1055) | OpenProcess com VM_WRITE/CREATE_THREAD em processo alheio | Sysmon EID 8 (CreateRemoteThread), EID 10 (ProcessAccess), regras Sigma |
-| LOLBins (T1218) | Linha de comando anômala em binário assinado, relação pai-filho inusual | Sigma `proc_creation_win_lolbin_*`, AppLocker/WDAC como prevenção |
-| Impair defenses (T1562.001) | Alteração de política AV, exclusões novas, ETW/AMSI tampering | Tamper Protection, eventos 5001/5007 do Defender, alertas MDE |
-| Masquerading (T1036) | Metadados inconsistentes, signer desconhecido, path incomum | SmartScreen, regras de signer/path, hunting de prevalência |
-| Sandbox evasion (T1497) | Sleep longos, checagens de ambiente | Detonação com aceleração de tempo, múltiplas sandboxes, análise estática da lógica de checagem |
+| Strings ofuscadas (T1027) | Entropia alta, poucas strings legíveis | YARA, análise de entropia, emulação |
+| Packing (T1027.002) | Estrutura PE anômala, seções RWX, entrypoint na última seção | Heurística estática, DIE, desempacotamento por emulação |
+| Decode em estágios (T1140) | Bloco grande de dados junto de uma função de decode | AMSI no buffer final, análise de fluxo |
+| Reflective loading (T1620) | RWX, memória executável sem arquivo de backing | ETW TI, EDR, scanners de memória (PE-sieve, Moneta) |
+| Process injection (T1055) | Handle cross-process com escrita e criação de thread | Sysmon EID 8 e 10, regras Sigma |
+| LOLBins (T1218) | Linha de comando anômala em binário assinado, pai-filho inusual | Sigma `proc_creation_win_lolbin_*`, AppLocker/WDAC |
+| Impair defenses (T1562.001) | Exclusão nova, política alterada, provider mexido | Tamper Protection, eventos 5001/5007, alertas MDE |
+| Masquerading (T1036) | Metadados inconsistentes, signer desconhecido, path incomum | SmartScreen, hunting de prevalência |
+| Sandbox evasion (T1497) | Sleeps longos, checagem de ambiente | Detonação com tempo acelerado, múltiplas sandboxes |
 
 ## Telemetria essencial
 
 | Fonte | O que observar |
 |---|---|
-| Sysmon | EID 1 (processo + cmdline + hash), 3 (rede), 7 (DLL), 8 (CreateRemoteThread), 10 (ProcessAccess), 11 (arquivo), 13 (registro) |
-| Windows Defender | EID 1116 (detecção), 1117 (ação), 5001/5007 (config change) |
-| AMSI/ETW | Buffers de script, providers de Threat Intelligence |
-| PowerShell | EID 4104 (Script Block Logging) — vê **desofuscado**, independente da ofuscação |
-| MDE/EDR | Correlação de cadeia: processo → memória → rede → persistência |
+| Sysmon | EID 1 (processo, cmdline, hash), 3 (rede), 7 (DLL), 8 (CreateRemoteThread), 10 (ProcessAccess), 11 (arquivo), 13 (registro) |
+| Windows Defender | EID 1116 (detecção), 1117 (ação tomada), 5001/5007 (mudança de configuração) |
+| AMSI e ETW | Buffers de script, providers de Threat Intelligence |
+| PowerShell | EID 4104 (Script Block Logging). Registra o conteúdo final, ofuscado ou não |
+| MDE/EDR | Correlação da cadeia: processo, memória, rede, persistência |
 
-## Princípios de defesa contra evasão
+## Princípios
 
-1. **Não confie em uma camada**: assinatura falha contra T1027; AMSI não cobre nativo; comportamental precisa de EDR. Defesa em profundidade é literal aqui.
-2. **Script Block Logging > AMSI para hunting**: 4104 registra tudo que executou, ofuscado ou não.
-3. **LOLBins se resolvem com restrição, não detecção**: AppLocker/WDAC removem a superfície em vez de caçá-la.
-4. **Tamper Protection ligado** transforma T1562.001 em alerta de alta severidade.
-5. **Memória é o novo disco**: scanners periódicos de RWX/reflective sections em estações críticas.
-6. **Prevalência e reputação**: arquivos de primeira vista (BAFS) devem ser tratados como suspeitos até prova contrária em ambientes corporativos.
+1. Nenhuma camada cobre tudo. Assinatura falha contra T1027; AMSI não enxerga nativo; comportamental depende de EDR. Profundidade aqui é literal.
+2. Para hunting em script, o 4104 vale mais que a AMSI. A AMSI só fala quando bloqueia; o 4104 conta tudo o que aconteceu.
+3. LOLBin se resolve com restrição, não com detecção. AppLocker e WDAC removem a superfície em vez de persegui-la.
+4. Tamper Protection ligado transforma T1562.001 em alerta de alta severidade.
+5. Memória virou o novo disco. Scan periódico de regiões RWX e imagens divergentes em estações críticas.
+6. Arquivo de primeira vista é suspeito até prova contrária. O Block at First Sight existe por um motivo.
 
-## Para o red team (authorized): o que isso ensina
+## O que isso ensina ao red team autorizado
 
-- O sucesso de um engajamento não é "passar no Defender" — é executar a cadeia **sem acionar correlação**.
-- Telemetria barata (Sysmon + 4104) já cobre a maioria das categorias: assuma que o alvo a tem.
-- Relatórios melhores citam **qual camada** foi vencida e qual sinal residual restou — é o que permite o blue team melhorar.
+Passar no Defender não é o objetivo do engajamento. Executar a cadeia sem acionar correlação, é. Sysmon com 4104 já cobre a maioria das categorias desta matriz, então assuma que o alvo tem os dois. E no relatório, diga qual camada foi vencida e qual sinal restou. É essa informação que deixa o blue team melhor do que estava antes de você chegar.
