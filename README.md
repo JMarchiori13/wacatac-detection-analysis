@@ -28,6 +28,7 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 6. **[T1055 — Process Injection](docs/06-process-injection.md)** 🔴🔵 — variantes (DLL, PE, hijacking, APC, hollowing, doppelgänging), handles cross-process e telemetria de detecção.
 7. **[T1620 — Reflective Code Loading](docs/07-reflective-loading.md)** 🔴🔵 — fileless em .NET (via AMSI) e nativo (loader manual), sinais de memória e contrapartida defensiva.
 8. **[AMSI em profundidade](docs/08-amsi-deep-dive.md)** 🔵 — arquitetura, buffer desofuscado, Script Block Logging e os limites da interface.
+9. **[T1218 — LOLBins em profundidade](docs/09-lolbins.md)** 🔴🔵 — binários assinados como veículo, famílias, sinais de detecção e WDAC como resposta real.
 
 ---
 
