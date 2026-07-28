@@ -1,0 +1,32 @@
+---
+name: "Correção de conteúdo"
+description: "Corrigir ou atualizar informação já documentada"
+title: "[Correção]: <documento/tema>"
+labels: ["correcao"]
+body:
+  - type: input
+    id: doc
+    attributes:
+      label: Documento afetado
+      placeholder: "docs/02-how-defender-detects.md"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Informação atual (incorreta/desatualizada)
+    validations:
+      required: true
+  - type: textarea
+    id: corrected
+    attributes:
+      label: Informação correta
+      description: Com data/versão do Security Intelligence em que foi verificado.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Fonte / Evidência
+    validations:
+      required: true

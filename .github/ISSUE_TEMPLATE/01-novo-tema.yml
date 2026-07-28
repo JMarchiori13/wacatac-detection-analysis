@@ -1,0 +1,45 @@
+---
+name: "Novo tema ou técnica"
+description: "Sugerir nova camada de detecção, categoria de evasão ou contrapartida defensiva"
+title: "[Novo tema]: <tema>"
+labels: ["novo-tema"]
+body:
+  - type: input
+    id: topic
+    attributes:
+      label: Tema
+      description: Camada do Defender, categoria ATT&CK, ferramenta de análise ou técnica defensiva.
+      placeholder: "Ex.: T1218.011 — rundll32 como LOLBin"
+    validations:
+      required: true
+  - type: dropdown
+    id: perspective
+    attributes:
+      label: Perspectiva de relevância
+      multiple: true
+      options:
+        - "Red Team — categoria de evasão, trade-offs, ATT&CK"
+        - "Blue Team — telemetria, detecção, hardening"
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Fonte / Evidência
+      description: Documentação Microsoft, MITRE ATT&CK, artigo técnico (com links).
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notas adicionais
+      description: Trade-offs, sinais residuais, variações por versão do Defender.
+    validations:
+      required: false
+  - type: checkboxes
+    id: ethics
+    attributes:
+      label: Escopo
+      options:
+        - label: "Conteúdo conceitual — sem payload, crypter ou código de bypass funcional"
+          required: true
