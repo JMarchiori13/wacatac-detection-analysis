@@ -34,6 +34,11 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 12. **[Persistência no Windows](docs/12-persistence.md)** 🔴🔵 — Run keys, serviços, tasks, IFEO, WMI, shims: os ganchos clássicos e os discretos, e o papel do baseline.
 13. **[T1021 — Movimento lateral](docs/13-lateral-movement.md)** 🔴🔵 — SMB, WinRM, RDP, WMI, DCOM, SSH: a assinatura de três partes que todo movimento deixa e o papel do baseline administrativo.
 14. **[C2 e exfiltração](docs/14-c2-exfiltration.md)** 🔴🔵 — canais conceituais, o beacon e seu calcanhar estatístico, e a razão upload/download que a defesa negligencia.
+15. **[YARA e Sigma](docs/15-yara-sigma.md)** 🔵 — regras prontas na pasta `rules/`: packers, tokens, LOLBins, injeção e hives.
+
+## Ruleset defensivo
+
+A pasta [`rules/`](rules/) contém regras YARA e Sigma prontas para uso e adaptação, cobrindo heurística de packer, regex de tokens, LOLBin, injeção remota e exportação de hives.
 
 ---
 
