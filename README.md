@@ -30,6 +30,7 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 8. **[AMSI em profundidade](docs/08-amsi-deep-dive.md)** 🔵 — arquitetura, buffer desofuscado, Script Block Logging e os limites da interface.
 9. **[T1218 — LOLBins em profundidade](docs/09-lolbins.md)** 🔴🔵 — binários assinados como veículo, famílias, sinais de detecção e WDAC como resposta real.
 10. **[T1562.006 — ETW e Indicator Blocking](docs/10-etw-indicator-blocking.md)** 🔴🔵 — atacar a telemetria é gerar telemetria: categorias de interferência, kernel vs. user-mode e a defesa do silêncio.
+11. **[WDAC e AppLocker](docs/11-wdac-applocker.md)** 🔴🔵 — whitelisting e suas falhas conceituais: audit-only eterno, paths graváveis, publisher mal escopado e os eventos que a defesa precisa olhar.
 
 ---
 
