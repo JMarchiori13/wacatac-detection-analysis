@@ -1,0 +1,21 @@
+title: CreateRemoteThread em processo alheio
+status: experimental
+description: Sysmon EID 8 com origem nao assinada criando thread remota (doc 06, T1055)
+author: wacatac-detection-analysis
+logsource:
+    product: windows
+    service: sysmon
+detection:
+    selection:
+        EventID: 8
+    filter_signed:
+        SourceImage|startswith:
+            - 'C:\\Windows\\'
+            - 'C:\\Program Files\\'
+            - 'C:\\Program Files (x86)\\'
+    condition: selection and not filter_signed
+falsepositives:
+    - EDRs e ferramentas de administracao legítimas
+level: high
+tags:
+    - attack.t1055

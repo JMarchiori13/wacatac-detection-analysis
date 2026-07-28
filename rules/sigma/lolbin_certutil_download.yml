@@ -1,0 +1,23 @@
+title: Certutil com URL (download)
+status: experimental
+description: certutil baixando conteudo remoto, padrao LOLBin (doc 09, T1218)
+author: wacatac-detection-analysis
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        Image|endswith: '\certutil.exe'
+    selection_url:
+        CommandLine|contains:
+            - 'http://'
+            - 'https://'
+    filter_decode_only:
+        CommandLine|contains: '-decode'
+        CommandLine|contains: '-encode'
+    condition: selection_img and selection_url and not filter_decode_only
+falsepositives:
+    - Scripts legítimos de PKI que consultam CRL por HTTP
+level: medium
+tags:
+    - attack.t1218
