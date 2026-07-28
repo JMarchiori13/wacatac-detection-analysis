@@ -33,6 +33,7 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 11. **[WDAC e AppLocker](docs/11-wdac-applocker.md)** 🔴🔵 — whitelisting e suas falhas conceituais: audit-only eterno, paths graváveis, publisher mal escopado e os eventos que a defesa precisa olhar.
 12. **[Persistência no Windows](docs/12-persistence.md)** 🔴🔵 — Run keys, serviços, tasks, IFEO, WMI, shims: os ganchos clássicos e os discretos, e o papel do baseline.
 13. **[T1021 — Movimento lateral](docs/13-lateral-movement.md)** 🔴🔵 — SMB, WinRM, RDP, WMI, DCOM, SSH: a assinatura de três partes que todo movimento deixa e o papel do baseline administrativo.
+14. **[C2 e exfiltração](docs/14-c2-exfiltration.md)** 🔴🔵 — canais conceituais, o beacon e seu calcanhar estatístico, e a razão upload/download que a defesa negligencia.
 
 ---
 
