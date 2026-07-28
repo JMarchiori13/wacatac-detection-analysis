@@ -1,52 +1,40 @@
 # 02 — Como o Microsoft Defender detecta
 
-Entender a pilha de detecção é pré-requisito para qualquer discussão séria sobre evasão (ou defesa). O Defender não é um scanner de assinaturas — é uma pilha em camadas.
+Antes de falar em evasão, ou em defesa, vale entender o que está do outro lado. O Defender não é um scanner de assinaturas. É uma pilha de camadas que atuam em momentos diferentes, e cada uma tem um ponto cego distinto.
 
-## Camadas da pilha
+## As camadas
 
-### 1. Assinaturas estáticas (on-disk)
+### 1. Assinaturas estáticas
 
-- Padrões de bytes, hashes, estruturas PE, sequências de código.
-- Atualizadas várias vezes ao dia via Security Intelligence Updates.
-- **Ponto fraco**: qualquer mutação que quebre o padrão invalida a assinatura.
+Padrões de bytes, hashes, estruturas de PE e sequências de código, atualizados várias vezes ao dia pelo Security Intelligence. Rápidas e precisas contra o que já é conhecido. O ponto fraco é óbvio: qualquer mutação que quebre o padrão aposenta a assinatura.
 
 ### 2. Heurística estática
 
-- Regras sobre características do arquivo: entropia alta (packed/encrypted), seções PE anômalas, imports suspeitos (poucos imports + `LoadLibrary`/`GetProcAddress`), ausência de assinatura digital, recursos embutidos incomuns.
-- É aqui que a maioria dos falsos positivos de packers/cracks nasce.
+Regras sobre características do arquivo, em vez de conteúdo exato. Entropia alta indica packer ou criptografia. Seções de PE anômalas, poucos imports combinados com `LoadLibrary` e `GetProcAddress`, falta de assinatura digital. A maioria dos falsos positivos em packers e cracks nasce aqui.
 
 ### 3. Emulação
 
-- O Defender executa o binário em um **emulador de CPU interno** antes de liberar.
-- Desempacota UPX e packers simples automaticamente, observa strings decriptadas em runtime e comportamento inicial.
-- Limitação: emulação é parcial e com tempo limitado — loops longos, sleeps e checagens de ambiente esgotam o emulador.
+Antes de liberar um executável, o Defender roda o começo dele em um emulador de CPU interno. É assim que ele desempacota UPX e packers simples sem ajuda, e que enxerga strings que só existem decriptadas em runtime. O limite também é claro: a emulação tem orçamento de tempo. Sleeps, loops longos e checagens de ambiente servem para esgotar esse orçamento.
 
-### 4. AMSI (Antimalware Scan Interface)
+### 4. AMSI
 
-- Interface para conteúdo **em memória**: scripts PowerShell, VBScript, JScript, .NET (assembly load), WMI.
-- Ferramentas como `powershell.exe`, `cscript`, Office macros e CLR chamam `AmsiScanBuffer` antes de executar conteúdo.
-- É a camada que pega payloads fileless e ofuscação de script em runtime.
+A interface que escaneia conteúdo em memória: PowerShell, VBScript, JScript, macros de Office, assemblies .NET, WMI. O host entrega o buffer ao antivírus antes de executar, o que mata a ofuscação de script como estratégia. O doc 08 é dedicado a ela.
 
-### 5. Monitoramento comportamental (runtime)
+### 5. Comportamental
 
-- Sequências de chamadas de API, criação de processos filhos suspeitos, injeção, escrita em pastas protegidas, persistência (Run keys, serviços, tasks).
-- Funciona mesmo para binários que passaram nas camadas 1–4.
+Sequências de chamadas de API, processos filhos suspeitos, injeção, escrita em locais protegidos, persistência em Run keys, serviços e tasks. Funciona contra binários que passaram limpos por todas as camadas anteriores.
 
-### 6. Cloud-delivered protection (MAPS) + ML
+### 6. Nuvem e machine learning
 
-- Metadados e amostras são consultados/enviados à nuvem Microsoft.
-- Modelos de ML classificam arquivos desconhecidos — origem das detecções `!ml` (incluindo Wacatac.B!ml).
-- **Block at First Sight (BAFS)**: arquivos nunca vistos podem ser bloqueados até a nuvem decidir.
-- Dependência: exige conectividade e telemetria habilitada.
+Arquivos desconhecidos são consultados contra modelos de ML da Microsoft. Daí saem os vereditos com `!ml`, incluindo o Wacatac. O Block at First Sight segura arquivos nunca vistos até a nuvem decidir. Depende de conectividade e telemetria habilitadas.
 
-### 7. SmartScreen / reputação
+### 7. SmartScreen
 
-- Baseado em prevalência e assinatura: arquivos raros, novos ou não assinados ganham aviso/bloqueio ao baixar (Mark-of-the-Web).
+Reputação baseada em prevalência e assinatura. Arquivo novo, raro e sem assinatura ganha aviso ou bloqueio no download.
 
-### 8. ETW e sensores auxiliares
+### 8. ETW e EDR
 
-- Event Tracing for Windows alimenta o Defender e EDRs (AMSI providers, Threat Intelligence ETW).
-- Microsoft Defender for Endpoint (EDR) correla processo/rede/registro — camada pós-execução.
+Event Tracing for Windows alimenta o Defender e os EDRs. O Defender for Endpoint correlaciona processo, memória, rede e registro depois da execução. É a camada que costuma pegar red teams: o binário passa no scan, mas a cadeia de comportamento o entrega.
 
 ## Mapa resumido
 
@@ -55,12 +43,12 @@ Entender a pilha de detecção é pré-requisito para qualquer discussão séria
 | Assinatura | Scan de disco | Malware conhecido |
 | Heurística | Scan de disco | Packers, estruturas suspeitas |
 | Emulação | Pré-execução | Unpacking, strings dinâmicas |
-| AMSI | Carregamento em memória | Scripts, .NET, fileless |
+| AMSI | Carga em memória | Scripts, .NET, fileless |
 | Comportamental | Execução | Sequências maliciosas |
 | Cloud ML | Sob demanda | Desconhecidos (`!ml`) |
-| SmartScreen | Download/execução | Baixa reputação |
+| SmartScreen | Download | Baixa reputação |
 | EDR/ETW | Pós-execução | Cadeias de ataque |
 
-## Implicação chave
+## Implicação prática
 
-Evasão confiável exige passar por **todas** as camadas relevantes ao vetor — não só pela assinatura. E é por isso que a detecção comportamental + EDR é o que normalmente captura red teams: o binário passa no scan, mas a **cadeia de comportamento** o entrega. Ver docs 03 e 04.
+Passar por uma camada não significa nada sozinho. Cada vetor de ataque atravessa um subconjunto da pilha, e a evasão só funciona se atravessar todas as camadas desse subconjunto. Os docs 03 e 04 detalham esse jogo dos dois lados.

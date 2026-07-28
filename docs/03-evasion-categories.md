@@ -1,85 +1,64 @@
 # 03 — Categorias de evasão (visão conceitual)
 
-> **Escopo**: descrição categórica das classes de técnicas estudadas em red teaming autorizado e CTFs — o "o quê" e o "por que funciona/falha", mapeadas para MITRE ATT&CK. Deliberadamente **sem** código, ferramentas prontas ou receitas operacionais.
+> Escopo: descrição das classes de técnicas estudadas em red teaming autorizado e CTFs. O que cada uma é, por que funciona, por que falha, e onde fica no MITRE ATT&CK. Sem código, sem ferramenta pronta, sem receita.
 
-## T1027 — Obfuscation (ofuscação)
+## T1027 — Obfuscation
 
-**Ideia**: mudar a representação do conteúdo sem mudar o comportamento, quebrando padrões estáticos.
+Mudar a representação sem mudar o comportamento, para quebrar padrões estáticos.
 
-| Subcategoria | O que é | Contrapartida da detecção |
+| Subcategoria | O que é | Como a detecção responde |
 |---|---|---|
-| Ofuscação de strings | Strings legíveis (IOCs clássicos) codificadas e resolvidas em runtime | Emulação do Defender resolve strings simples; AMSI vê o conteúdo final |
-| Ofuscação de script | Renomeação, concatenação, encoding em PowerShell/JS | AMSI recebe o buffer **desofuscado** em camadas — ofuscação de script é das menos eficazes hoje |
-| Ofuscação de código nativo | Junk code, reordenação, opaque predicates | Aumenta entropia — e entropia alta é sinal heurístico (trade-off!) |
+| Strings ofuscadas | IOCs clássicos codificados e resolvidos em runtime | O emulador resolve strings simples; a AMSI vê o conteúdo final |
+| Script ofuscado | Renomeação, concatenação, encoding | A AMSI recebe o buffer desofuscado, em camadas. Das técnicas mais desgastadas hoje |
+| Código nativo ofuscado | Junk code, reordenação, opaque predicates | Aumenta entropia, e entropia alta é sinal heurístico. A técnica cobra pedágio dela mesma |
 
-**Trade-off central**: ofuscar reduz detecção por assinatura, mas aumenta sinais heurísticos. Contra `!ml` (Wacatac), o modelo olha dezenas de features — mudar uma string raramente basta.
+O trade-off central da categoria: ofuscar reduz detecção por assinatura e aumenta sinais heurísticos na mesma medida. Contra um classificador de ML como o Wacatac, que pesa dezenas de features, trocar uma string raramente move o veredito.
 
-## T1027.002 — Packing / crypters (empacotamento)
+## T1027.002 — Packing e crypters
 
-**Ideia**: envolver o binário em uma camada que o desempacota em memória, escondendo o payload original do scan estático.
+Envolver o binário numa casca que o desempacota em memória, escondendo o payload do scan estático.
 
-- Packers comerciais/legítimos (UPX, Themida, VMProtect) são **conhecidos** — o emulador do Defender desempacota os comuns, e os fortes elevam a suspeita heurística por si só.
-- Crypters custom mudam o "casca", mas o comportamento em runtime continua exposto às camadas 4–8 (doc 02).
-- Por isso packers respondem por tantos **falsos positivos** Wacatac: a heurística pune a estrutura, não o conteúdo.
+Packers conhecidos (UPX, Themida, VMProtect) são território mapeado: o emulador abre os simples, e os fortes elevam a suspeita só por estarem ali. Crypters custom trocam a casca, mas o comportamento em runtime continua exposto às camadas 4 a 8 do doc 02. Não por acaso, packers lideram os falsos positivos de Wacatac. A heurística pune a estrutura, não o conteúdo.
 
-## T1140 — Deobfuscate/Decode (codificação em estágios)
+## T1140 — Deobfuscate/Decode
 
-**Ideia**: payload armazenado codificado (Base64, XOR, etc.) e decodificado apenas em memória.
+Payload armazenado codificado (Base64, XOR e similares) e decodificado só em memória. O scan estático vê dados opacos; a AMSI e o comportamental veem o resultado. Em script, é a técnica mais trivialmente detectada que existe, porque o buffer final é escaneado de qualquer jeito.
 
-- Estático vê apenas dados opacos; em runtime, AMSI/comportamental vê o resultado.
-- Em scripts, é a técnica mais trivialmente detectada por AMSI — o buffer final é escaneado de qualquer forma.
+## T1620 — Reflective code loading
 
-## T1620 — Reflective code loading (execução em memória)
+Carregar código sem tocar o disco, negando alvo às camadas 1 a 3. Em .NET o caminho passa pela AMSI; em nativo, exige um loader manual que deixa marcas de memória próprias. É a categoria dominante em CTF e red team moderno, e por isso a mais instrumentada pela defesa. O doc 07 inteiro é sobre ela.
 
-**Ideia**: carregar código sem tocar o disco (fileless), negando às camadas 1–3 qualquer alvo.
+## T1055 — Process injection
 
-- Em .NET: carregamento de assemblies via reflexão — passa pela AMSI (.NET instrumentation).
-- Em nativo: mapeamento manual de PE em memória — não passa por AMSI clássica, mas deixa marcas comportamentais (alocação RWX, chamadas de API típicas) que EDRs correlacionam.
-- É a categoria dominante em CTF/red team moderno — e por isso a mais instrumentada pela defesa atual.
+Executar código dentro de um processo legítimo, herdando reputação e misturando comportamento. O sinal é antigo: abrir handle em outro processo com permissão de escrita e criação de thread é anomalia confiável faz décadas. Detalhes no doc 06.
 
-## T1055 — Process injection / hollowing
+## T1218 — Living off the Land
 
-**Ideia**: executar código no contexto de um processo legítimo, herdando sua reputação e misturando o comportamento.
-
-- Fortemente monitorada: abertura de handle em outro processo com permissões de escrita/execução é um dos sinais comportamentais mais antigos e confiáveis.
-
-## T1218 — Living off the Land (LOLBins)
-
-**Ideia**: usar binários assinados da própria Microsoft (`rundll32`, `mshta`, `regsvr32`, `certutil`, `powershell` etc.) como veículo — nada para assinar/heuristiquear, pois o executável é legítimo.
-
-- A detecção migra de "arquivo" para **linha de comando e relação pai-filho** — território de EDR e regras Sigma.
-- Em CTFs, é a categoria mais ensinada porque treina pensar como a defesa.
+Usar binários assinados da própria Microsoft como veículo: `rundll32`, `mshta`, `regsvr32`, `certutil`, `powershell`. Não há arquivo suspeito para assinar ou heuristiquear, porque o executável é legítimo. A detecção migra para linha de comando e relação pai-filho, território de EDR e Sigma. É a categoria mais ensinada em CTFs porque obriga a pensar como a defesa.
 
 ## T1562.001 — Impair defenses
 
-**Ideia**: reduzir a própria capacidade de detecção (desabilitar AMSI no processo, apagar logs, excluir paths).
-
-- **A mais ruidosa de todas**: alterar estado de segurança gera telemetria própria (Tamper Protection, eventos de alteração de política, alertas de EDR).
-- Em engajamentos reais autorizados, costuma exigir privilégio elevado e é onde muitos red teams são pegos.
+Reduzir a capacidade de detecção: desabilitar AMSI no processo, apagar logs, criar exclusões. A categoria mais barulhenta de todas. Alterar estado de segurança gera telemetria própria, entre Tamper Protection, eventos de mudança de política e alertas de EDR. Em engajamento real costuma exigir privilégio alto, e é onde muitos red teams são pegos.
 
 ## T1036 — Masquerading
 
-**Ideia**: parecer legítimo — nome, ícone, metadados, localização e (o mais relevante contra reputação) **assinatura de código**.
+Parecer legítimo: nome, ícone, metadados, localização e, o que pesa mais contra reputação, assinatura de código. SmartScreen e nuvem dão peso grande a assinatura válida e prevalência. Mascaramento sem reputação tem eficácia limitada contra ML.
 
-- SmartScreen e cloud dão peso grande a assinatura válida e prevalência; mascaramento puro sem reputação tem eficácia limitada contra `!ml`.
+## T1497 — Sandbox e emulator evasion
 
-## Sandbox/emulator evasion (T1497)
+Detectar ambiente de análise e fingir ser benigno nele. O emulador do Defender esgota em sleeps e loops; sandboxes vazam artefatos de ambiente. A resposta da defesa é que a camada comportamental no host real não é sandbox. Cedo ou tarde o comportamento aparece onde importa.
 
-**Ideia**: detectar ambiente de análise (emulador, VM, sandbox) e comportar-se benignamente nele — o emulador do Defender esgota em sleeps/loops, e sandboxes podem ser detectadas por artefatos de ambiente.
-
-- Contrapartida: a camada comportamental no host real não é sandbox — o comportamento malicioso eventualmente aparece onde importa.
-
-## A verdade inconveniente (para ambos os lados)
+## Verdades inconvenientes para os dois lados
 
 | Crença comum | Realidade |
 |---|---|
-| "Ofusquei, passou no VirusTotal" | VirusTotal mede principalmente camadas 1–2; não mede AMSI, comportamental nem EDR no host |
-| "Wacatac pegou meu payload, preciso de crypter melhor" | Wacatac `!ml` reage a features estruturais — trocar de packer frequentemente **aumenta** a suspeita |
-| "Fileless é indetectável" | Fileless é o vetor mais instrumentado da década (AMSI + ETW) |
-| "Evasão é problema de binário" | Evasão moderna é problema de **cadeia**: staging, execução, C2 e comportamento contam juntos |
+| "Ofusquei e passou no VirusTotal" | VirusTotal mede principalmente as camadas 1 e 2. Não mede AMSI, comportamental nem EDR |
+| "Preciso de um crypter melhor" | Wacatac `!ml` reage a features estruturais. Trocar de packer com frequência aumenta a suspeita |
+| "Fileless é indetectável" | Fileless é o vetor mais instrumentado da década |
+| "Evasão é problema de binário" | Evasão moderna é problema de cadeia: staging, execução, C2 e comportamento contam juntos |
 
 ## Referências
 
 - MITRE ATT&CK: T1027, T1027.002, T1140, T1620, T1055, T1218, T1562.001, T1036, T1497
 - Documentação Microsoft: AMSI, cloud-delivered protection, emulador do Defender
-- Material público de certificações: OSCP (evasion module), CRTP, Maldev Academy (conceitual)
+- Material público de certificações: OSCP, CRTP, Maldev Academy (nível conceitual)
