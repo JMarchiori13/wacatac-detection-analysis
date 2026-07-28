@@ -25,6 +25,7 @@ Análise técnica da detecção **`Trojan:Win32/Wacatac`** do Microsoft Defender
 3. **[Categorias de evasão (conceitual)](docs/03-evasion-categories.md)** — as classes de técnicas estudadas em red team autorizado, mapeadas para MITRE ATT&CK, sem código operacional.
 4. **[Detecção de evasão (Blue Team)](docs/04-detecting-evasion.md)** — como a defesa pega cada categoria, telemetria e hardening.
 5. **[Lab de CTF autorizado](docs/05-ctf-lab-setup.md)** — como montar um ambiente isolado e legal para estudar detecção/evasão.
+6. **[T1055 — Process Injection](docs/06-process-injection.md)** 🔴🔵 — variantes (DLL, PE, hijacking, APC, hollowing, doppelgänging), handles cross-process e telemetria de detecção.
 
 ---
 
