@@ -1,0 +1,28 @@
+title: Processo acessando lsass com acesso amplo
+status: experimental
+description: Sysmon EID 10 com GrantedAccess alto em lsass.exe, indicio de dump (T1003.001)
+author: wacatac-detection-analysis
+logsource:
+    product: windows
+    service: sysmon
+detection:
+    selection:
+        EventID: 10
+        TargetImage|endswith: '\lsass.exe'
+    selection_access:
+        GrantedAccess|contains:
+            - '0x1010'
+            - '0x1410'
+            - '0x1438'
+            - '0x143a'
+            - '0x1FFFFF'
+    filter_av:
+        SourceImage|startswith:
+            - 'C:\\ProgramData\\Microsoft\\Windows Defender'
+            - 'C:\\Program Files\\Windows Defender'
+    condition: selection and selection_access and not filter_av
+falsepositives:
+    - Antivirus e EDRs legítimos
+level: high
+tags:
+    - attack.t1003.001

@@ -1,0 +1,19 @@
+title: WMI event subscription criada
+status: experimental
+description: Criacao de consumidor de evento WMI, persistencia discreta (doc 12, T1546.003)
+author: wacatac-detection-analysis
+logsource:
+    product: windows
+    service: sysmon
+detection:
+    selection:
+        EventID:
+            - 19
+            - 20
+            - 21
+    condition: selection
+falsepositives:
+    - Ferramentas de inventario e monitoramento legítimas
+level: medium
+tags:
+    - attack.t1546.003
